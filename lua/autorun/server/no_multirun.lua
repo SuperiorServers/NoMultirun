@@ -21,15 +21,18 @@ local setactive 	= nomr.db:Prepare 'REPLACE INTO sessions(steamid64, time, serve
 local setinactive 	= nomr.db:Prepare 'DELETE FROM sessions WHERE steamid64=?;'
 
 hook.Add('PlayerInitialSpawn', 'nomr.PlayerInitialSpawn', function(pl)
-	setactive:Run(pl:SteamID64(), os.time(), nomr.serverid)
-
-	nomr.sessions[pl:SteamID64()] = pl
+	local steamid64 = pl:SteamID64()
+	setactive:Run(steamid64, os.time(), nomr.serverid, function()
+		if IsValid(pl) then
+			nomr.sessions[steamid64] = pl
+		end
+	end)
 end)
 
 hook.Add('PlayerDisconnected', 'nomr.PlayerDisconnected', function(pl)
-	setinactive:Run(pl:SteamID64())
-
-	nomr.sessions[pl:SteamID64()] = nil
+	local steamid64 = pl:SteamID64()
+	setinactive:Run(steamid64)
+	nomr.sessions[steamid64] = nil
 end)
 
 timer.Create('nomr.CheckMultirunningSessions', 5, 0, function()
