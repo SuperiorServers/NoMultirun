@@ -22,7 +22,6 @@ local checksession 	= nomr.db:Prepare('SELECT steamid64, server FROM sessions WH
 local updatesession = nomr.db:Prepare('REPLACE INTO sessions(steamid64, time, server) VALUES(?, UNIX_TIMESTAMP(), ' .. nomr.serverid .. ');')
 hook.Add('CheckPassword', 'nomr.CheckPassword', function(steamid64)
 	checksession:Run(steamid64, function(data)
-		print('CheckPassword', steamid64, nomr.serverid, #data)
 		if (#data > 0) then
 			game.KickID(util.SteamIDFrom64(steamid64), 'Active session on another server detected') -- if we create your session here you wont be able to join other servers if you lose connection before you're authed
 		end
@@ -31,7 +30,6 @@ end)
 
 hook.Add('PlayerAuthed', 'nomr.PlayerAuthed', function(pl)
 	checksession:Run(pl:SteamID64(), function(data)
-		print('PlayerAuthed', pl:SteamID64(), nomr.serverid, #data)
 		if IsValid(pl) then
 			if (#data > 0) then
 				game.KickID(pl:SteamID(), 'Active session on another server detected') -- You tried to join before your session was made
