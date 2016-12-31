@@ -34,9 +34,6 @@ local STATEMENT = {
 STATEMENT.__concat 	= STATEMENT.__tostring
 STATEMENT.__index 	= STATEMENT
 
-_R.MySQLDatabase 	= DATABASE
-_R.MySQLStatement 	= STATEMENT
-
 local tostring 		= tostring
 local SysTime 		= SysTime
 local pairs 		= pairs

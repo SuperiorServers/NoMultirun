@@ -1,9 +1,9 @@
-nomr 			= nomr or {}
-nomr.serverid 	= util.CRC(game.GetIPAddress())
-nomr.lastcheck 	= nomr.lastcheck or os.time()
-nomr.sessions 	= nomr.sessions or {}
+nomr = nomr or {
+	serverid = util.CRC(game.GetIPAddress())
+}
 
 include 'dash_mysql_wrapper.lua'
+
 
 nomr.db = nomr.db or nomr.mysql('HOSTNAME', 'USERNAME', 'PASSWORD', 'DATABASE', 3306)
 
@@ -16,33 +16,38 @@ nomr.db:Query [[
 	);
 ]]
 
-local checkactive 	= nomr.db:Prepare 'SELECT steamid64, server FROM sessions WHERE time>=? AND server != ?;'
-local setactive 	= nomr.db:Prepare 'REPLACE INTO sessions(steamid64, time, server) VALUES(?, ?, ?);'
-local setinactive 	= nomr.db:Prepare 'DELETE FROM sessions WHERE steamid64=?;'
+nomr.db:Query('DELETE FROM sessions WHERE server = ' .. nomr.serverid .. ';')
 
-hook.Add('PlayerInitialSpawn', 'nomr.PlayerInitialSpawn', function(pl)
-	local steamid64 = pl:SteamID64()
-	setactive:Run(steamid64, os.time(), nomr.serverid, function()
-		if IsValid(pl) then
-			nomr.sessions[steamid64] = pl
+local checksession 	= nomr.db:Prepare('SELECT steamid64, server FROM sessions WHERE steamid64=? AND time >= (UNIX_TIMESTAMP() - 0.5) AND server != ' .. nomr.serverid .. ';')
+local updatesession = nomr.db:Prepare('REPLACE INTO sessions(steamid64, time, server) VALUES(?, UNIX_TIMESTAMP(), ' .. nomr.serverid .. ');')
+hook.Add('CheckPassword', 'nomr.CheckPassword', function(steamid64)
+	checksession:Run(steamid64, function(data)
+		print('CheckPassword', steamid64, nomr.serverid, #data)
+		if (#data > 0) then
+			game.KickID(util.SteamIDFrom64(steamid64), 'Active session on another server detected') -- if we create your session here you wont be able to join other servers if you lose connection before you're authed
 		end
 	end)
 end)
 
-hook.Add('PlayerDisconnected', 'nomr.PlayerDisconnected', function(pl)
-	local steamid64 = pl:SteamID64()
-	setinactive:Run(steamid64)
-	nomr.sessions[steamid64] = nil
-end)
-
-timer.Create('nomr.CheckMultirunningSessions', 5, 0, function()
-	checkactive:Run(nomr.lastcheck, nomr.serverid, function(data)
-		for k, v in ipairs(data) do
-			local pl = nomr.sessions[v.steamid64]
-			if IsValid(pl) then
-				pl:Kick('Active session on another server detected')
+hook.Add('PlayerAuthed', 'nomr.PlayerAuthed', function(pl)
+	checksession:Run(pl:SteamID64(), function(data)
+		print('PlayerAuthed', pl:SteamID64(), nomr.serverid, #data)
+		if IsValid(pl) then
+			if (#data > 0) then
+				game.KickID(pl:SteamID(), 'Active session on another server detected') -- You tried to join before your session was made
+			else
+				updatesession:Run(pl:SteamID64())
 			end
 		end
 	end)
-	nomr.lastcheck = os.time()
+end)
+
+local deletesession = nomr.db:Prepare('DELETE FROM sessions WHERE steamid64=? AND server = ' .. nomr.serverid .. ';')
+hook.Add('PlayerDisconnected', 'nomr.PlayerDisconnected', function(pl)
+	deletesession:Run(pl:SteamID64())
+end)
+
+local updatesessions = nomr.db:Prepare('UPDATE sessions SET time = UNIX_TIMESTAMP() WHERE server = ' .. nomr.serverid .. ';')
+timer.Create('nomr.UpdateSessions', 0.25, 0, function()
+	updatesessions:Run()
 end)
