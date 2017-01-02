@@ -1,6 +1,15 @@
 local serverid = util.CRC(GetConVarString('ip') .. ':' .. GetConVarString('hostport'))
 
 hook.Add('Initialize', 'nomr.Initialize', function()
+	tmysql.query [[
+		CREATE TABLE IF NOT EXISTS `sessions`(  
+			`steamid64` BIGINT(20) NOT NULL,
+			`time` INT NOT NULL,
+			`server` BIGINT(20) NOT NULL,
+			PRIMARY KEY (`steamid64`)
+		);
+	]]
+	
 	tmysql.query('DELETE FROM sessions WHERE server = ' .. serverid .. ';')
 end)
 
