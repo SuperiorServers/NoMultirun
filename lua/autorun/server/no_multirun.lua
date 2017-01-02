@@ -1,5 +1,5 @@
 nomr = nomr or {
-	serverid = util.CRC(game.GetIPAddress())
+	serverid = util.CRC(GetConVarString('ip') .. ':' .. GetConVarString('hostport'))
 }
 
 include 'dash_mysql_wrapper.lua'
